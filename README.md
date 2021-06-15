@@ -7,7 +7,8 @@ If you make advantage of this simulator in your research, please cite the follow
 @inproceedings{zhang2021intelligent,
   title={Intelligent Electric Vehicle Charging Recommendation Based on Multi-Agent Reinforcement Learning},
   author={Zhang, Weijia and Liu, Hao and Wang, Fan and Xu, Tong and Xin, Haoran and Dou, Dejing and Xiong, Hui},
-  booktitle={The World Wide Web Conference},
+  booktitle={Proceedings of The World Wide Web Conference},
+  pages={1856--1867},
   year={2021}
 }
 ```
