@@ -1,7 +1,7 @@
 # Intelligent Electric Vehicle Charging Recommendation Based on Multi-Agent Reinforcement Learning
 This is a simulator of Charging Station Recommendation described in the paper [Intelligent Electric Vehicle Charging Recommendation Based on Multi-Agent Reinforcement Learning](https://arxiv.org/abs/2102.07359).
 
-If you make advantage of this simulator in your research, please cite the following:
+If you take advantage of this simulator in your research, please cite the following:
 
 ```
 @inproceedings{zhang2021intelligent,
