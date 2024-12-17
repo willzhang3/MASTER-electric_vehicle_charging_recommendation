@@ -119,6 +119,7 @@ class Charging_Env:
         TorchLong = torch.cuda.LongTensor if args.device == torch.device('cuda') else torch.LongTensor
 
         # env params
+        self.simulate = args.simulate
         self.grid2cs_duration = durations 
         self.cs_surgrids = cs_surgrids
         self.powers = powers
@@ -151,6 +152,7 @@ class Charging_Env:
         self.t_step = np.arange(self.T_LEN,dtype=np.int16).reshape(self.T_LEN,1,1).repeat(self.N,axis=1) 
         self.t_step = self.t_step.repeat(self.interval,axis=0) # (T,N,1)
         self.chargefee = np.expand_dims(fee_24hour.transpose(1,0),axis=-1).repeat(4,axis=0)[:self.T_LEN].repeat(self.interval,axis=0)
+        self.chargefee = np.roll(self.chargefee,-15,axis=0) # future 15 min price
         self.querys = None
         self.base_state = None
         
@@ -178,12 +180,12 @@ class Charging_Env:
         idx = np.random.randint(k)
         return ind[idx]
     
-    def est_quantity(self, cs_idx):
+    def est_power(self, cs_idx):
         charge_qt = np.random.normal(self.avg_charge_qt,self.std_charge_qt)
         return charge_qt
 
     def est_time(self, cs_idx):
-        charge_qt = self.est_quantity(cs_idx)
+        charge_qt = self.est_power(cs_idx)
         charge_time = (charge_qt / (self.powers[cs_idx]*self.power_rate)) * 60
         return charge_time, charge_qt
 
@@ -214,7 +216,7 @@ class Charging_Env:
          '20190615', '20190616', '20190617', '20190618', '20190619', '20190620', '20190621', '20190622', '20190623', '20190624', '20190625', '20190626', '20190627', '20190628',\
          '20190629', '20190630', '20190701']
         self.demand = self.demand.repeat(self.interval,axis=0) # demand about future 15min
-        self.querys = [[] for t in range(self.T_LEN*self.interval)] # (T,[(grid_idx, query_time, query_idx)...])
+        self.querys = [[] for t in range(self.T_LEN*self.interval)] # (T,[(grid_idx, query_time, query_idx, target_cs)...])
         self.query_idx = 0
         with open("../exp_data/request/{}".format(dates[day]),"r") as fp:
             for line in fp:
@@ -233,7 +235,7 @@ class Charging_Env:
     def demand_generation(self):
         """ Poisson distribution
         """ 
-        self.querys = [[] for t in range(self.T_LEN*self.interval)] # (T,[(grid_idx, query_time)...])
+        self.querys = [[] for t in range(self.T_LEN*self.interval)] # (T,[(grid_idx, query_time, query_idx, target_cs)...])
         self.query_idx = 0
         for cur_t in range(self.T_LEN):
             lam = self.demand_dist[cur_t,:,0] # (n_grids,1) -- lambda(mean)
@@ -247,7 +249,8 @@ class Charging_Env:
                 t_querys.extend(tmp)
             t_querys = sorted(t_querys,key=lambda x:x[1]) # sorted by query_time
             for query_tp in t_querys:
-                query_tp = (query_tp[0],query_tp[1],self.query_idx)
+                target_cs = np.random.randint(self.N)
+                query_tp = (query_tp[0],query_tp[1],self.query_idx,target_cs)
                 self.querys[query_tp[1]].append(query_tp)
                 self.query_idx += 1
         self.demand = self.demand.repeat(self.interval,axis=0)
@@ -324,7 +327,10 @@ class Charging_Env:
         self.reward_filter.reset() # reward normalization
         self.init_state()
         self.supply = self.supply_load(day)
-        self.demand, self.querys = self.demand_load(day)
+        if(self.simulate):
+            self.demand, self.querys = self.demand_generation()
+        else:
+            self.demand, self.querys = self.demand_load(day)
         self.cs_demand = np.clip(self.cs_neighbor_demand(),0,20) # (T,N,1)
         self.base_state = np.concatenate([self.powers_rec,self.supply,self.cs_demand,self.t_step,self.chargefee,self.cs_idx],axis=-1) #(T,N,F)
         # reset state and event_in 
